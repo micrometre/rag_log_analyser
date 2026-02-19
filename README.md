@@ -1,93 +1,184 @@
-# RAG Quiz with Ollama and ChromaDB
+# RAG Log Analyser
 
-An interactive quiz application powered by Retrieval-Augmented Generation (RAG) using Ollama for embeddings and language models, with ChromaDB as the vector database.
+A **Retrieval-Augmented Generation (RAG)** application for intelligent system log analysis using local LLMs and vector embeddings.
 
 ## Overview
 
-This project demonstrates a practical RAG application that:
-- Indexes educational documents using embeddings
-- Generates quiz questions from a knowledge base
-- Validates user answers using AI with retrieved context
-- Provides personalized feedback based on performance
+This project implements a **Summary-based RAG architecture** that overcomes the challenges of analyzing highly structured and noisy log data. Instead of embedding raw logs directly, we:
 
-## Prerequisites
 
-- Python 3.7+
-- [Ollama](https://ollama.ai/) installed and running locally
-- Required Ollama models pulled:
-  ```bash
-  ollama pull nomic-embed-text
-  ollama pull phi3:mini
-  ```
+
+
+
+1. **Summarize** log entries using Llama 3.2 (3B) for cleaner, semantic content
+2. **Embed** summaries using Nomic embeddings for high-quality vector representations
+3. **Store** vectors in ChromaDB for fast, persistent retrieval
+4. **Query** logs intelligently by finding semantically similar entries
+
+## Architecture
+
+```
+System Logs
+    ↓
+[Summarization] Llama 3.2 (3B) → Clean summaries
+    ↓
+[Embedding] Nomic-embed-text → Vector representations
+    ↓
+[Vector Store] ChromaDB → Persistent storage
+    ↓
+[Query] Semantic search → Relevant results
+```
+
+## Features
+
+- ✅ Real-time log processing with `live_log_analyser.py`
+- ✅ Semantic search queries with `query_log_analyser.py`
+- ✅ Lightweight local vector database (ChromaDB)
+- ✅ Offline operation - no external APIs required
+- ✅ Efficient small model stack (3B LLM + embeddings)
+
+## Requirements
+
+- Python 3.8+
+- Ollama (for running local models)
+- Models: `llama3.2:3b` and `nomic-embed-text`
 
 ## Installation
 
-1. Clone this repository:
+1. **Clone the repository:**
    ```bash
-   git clone https://github.com/micrometre/rag-quiz
-   cd rag
+   git clone <repository-url>
+   cd rag_log_analyser
    ```
 
-2. Create and activate a virtual environment:
+2. **Install Ollama:**
+   Download from [ollama.ai](https://ollama.ai) and install.
+
+3. **Pull required models:**
    ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ollama pull llama3.2:3b
+   ollama pull nomic-embed-text
    ```
 
-3. Install dependencies:
+4. **Install Python dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-4. Make sure Ollama is running with the required models.
-
 ## Usage
 
-### Quiz Mode (Main Feature)
+### Real-time Log Analysis
 
-Run the interactive quiz:
+Monitor system logs in real-time and automatically index them:
+
+
 ```bash
-python quiz_example.py
+python live_log_analyser.py
 ```
 
-The quiz will:
-1. Index educational documents about Python, ML, AI, and more
-2. Ask you questions based on the knowledge base
-3. Validate your answers using RAG (retrieves context + AI evaluation)
-4. Track your score and provide personalized feedback
+This script:
+- Tails system logs using `journalctl`
+- Summarizes each log entry
+- Embeds summaries with Nomic
+- Stores in ChromaDB vector database
 
-### Basic RAG Example
+### Query Logs
 
-For a simpler RAG demonstration:
+Search for relevant logs using natural language:
+
+
 ```bash
-python rag_example.py
+python query_log_analyser.py
 ```
 
-This script shows the core RAG workflow: indexing documents, querying, and generating answers.
+Example queries:
+- "Was there any suspicious SSH activity?"
+- "What network errors occurred?"
+- "Show me all authentication failures"
+
+## Project Structure
+
+```
+rag_log_analyser/
+├── live_log_analyser.py      # Real-time log processing
+├── query_log_analyser.py     # Query interface
+├── requirements.txt          # Python dependencies
+├── log_vector_db/           # ChromaDB storage (auto-created)
+└── scripts/                 # Example scripts
+```
 
 ## How It Works
 
-1. **Document Indexing**: Educational content is converted to embeddings using `nomic-embed-text` and stored in ChromaDB
-2. **Question Processing**: Each quiz question retrieves relevant context from the knowledge base
-3. **Answer Validation**: User answers are evaluated by `phi3:mini` using the retrieved context
-4. **Scoring & Feedback**: The system tracks correct answers and generates personalized feedback
+### 1. Ingestion (`live_log_analyser.py`)
+- Reads system logs from `journalctl`
+- Processes each log line as it arrives
+- Prevents duplicate processing with content-based hashing
 
-## Customization
+### 2. Processing Pipeline
+```python
+# For each log line:
+1. Summarize:    Llama 3.2 condenses noise
+2. Embed:        Nomic creates semantic vector
+3. Store:        ChromaDB saves for retrieval
+```
 
-- **Change the LLM**: Replace `phi3:mini` with any Ollama model (e.g., `llama3.2`, `mistral`)
-- **Add more documents**: Extend the `documents` list with your own educational content
-- **Create custom quizzes**: Modify the `quiz_questions` list to create your own quizzes
-- **Adjust difficulty**: Change `n_results` to retrieve more or fewer context documents
+### 3. Retrieval (`query_log_analyser.py`)
+- User asks a natural language question
+- Question is embedded using Nomic
+- ChromaDB returns semantically similar summaries
+- Results include both clean summary and raw log entry
 
-## Dependencies
+## Configuration
 
-- `ollama`: Python client for Ollama
-- `chromadb`: Vector database for storing and querying embeddings
+### Adjust Log Source
+Edit `live_log_analyser.py` to change log source:
+```python
+cmd = ["journalctl", "-f", "-n", "5"]  # Change this line
+# Or use: ["tail", "-f", "/var/log/syslog"]
+```
+
+### Tune Vector Search
+In `query_log_analyser.py`, adjust the number of results:
+```python
+n_results=25  # Change this number
+```
+
+## Performance Notes
+
+- **Llama 3.2 (3B)**: ~50-100ms per log entry on CPU
+- **Nomic Embeddings**: ~5-10ms per entry
+- **ChromaDB**: Instant (~1ms) for vector similarity search
+- Total indexing time per log: ~100-150ms
+
+## Troubleshooting
+
+
+
+
+**Models not found:**
+```bash
+ollama list  # Check installed models
+ollama pull llama3.2:3b
+ollama pull nomic-embed-text
+```
+
+**ChromaDB persistence issues:**
+- Database stored in `./log_vector_db/`
+- Safe to delete and recreate (will re-index from live logs)
+
+**Performance slow:**
+- Ensure Ollama is running: `ollama serve`
+- Check system RAM (3B model needs ~4GB)
+- Use GPU if available for faster inference
+
+## Future Improvements
+
+- [ ] Multi-model comparison (other LLMs)
+- [ ] Advanced filtering and time-based queries
+- [ ] Web UI for search interface
+- [ ] Log pattern anomaly detection
+- [ ] Batch log file ingestion
 
 ## License
 
-MIT
-
-## Contributing
-
-Feel free to open issues or submit pull requests with improvements!
+MIT License
